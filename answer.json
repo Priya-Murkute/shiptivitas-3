@@ -1,0 +1,51 @@
+{
+  "title": "Shiptivity Module 3 - SQL queries",
+  "database": "shiptivity.db (SQLite)",
+  "feature_release_date": "2018-06-02",
+  "task": {
+    "part1": "Create a SQL query that maps out the daily average users before and after the feature change",
+    "part2": "Create a SQL query that indicates the number of status changes by card"
+  },
+  "queries": [
+    {
+      "part": "part1",
+      "name": "daily_active_users_by_day",
+      "description": "Number of distinct users who logged in each day, labelled before or after the Kanban Board release (2018-06-02).",
+      "output": "results/dau_by_day.csv",
+      "sql": "Select date(\n    login_timestamp, 'unixepoch') AS day,\n    COUNT(DISTINCT user_id) AS daily_active_users,\n    CASE\n        WHEN date(login_timestamp, 'unixepoch') < '2018-06-02'\n            THEN 'Before Feature Change'\n        ELSE 'After Feature Change'\n    END AS period\nFROM login_history\nGROUP BY day\nORDER BY day;"
+    },
+    {
+      "part": "part1",
+      "name": "avg_daily_active_users_before_after",
+      "description": "Average daily active users before vs after the release (averaged over days with at least one login).",
+      "output": "results/avg_dau_before_after.csv",
+      "sql": "WITH daily AS (\n    SELECT date(login_timestamp, 'unixepoch') AS day,\n        COUNT(DISTINCT user_id) AS daily_active_users,\n        CASE\n            WHEN date(login_timestamp, 'unixepoch') < '2018-06-02'\n                THEN 'Before Feature Change'\n            ELSE 'After Feature Change'\n        END AS period\n    FROM login_history\n    GROUP BY day\n)\nSELECT period, ROUND(AVG(daily_active_users), 2) AS avg_daily_active_users,\n       COUNT(*) AS active_days\nFROM daily GROUP BY period ORDER BY period DESC;"
+    },
+    {
+      "part": "part2",
+      "name": "status_changes_by_card",
+      "description": "Number of status changes for each card. Card creations (oldStatus is null) and priority-only edits are not counted.",
+      "output": "results/status_changes_by_card.csv",
+      "sql": "SELECT c.id AS card_id, c.name AS card_name, COUNT(h.cardID) AS status_changes\nFROM card c\nLEFT JOIN card_change_history h\n  ON h.cardID = c.id AND h.oldStatus IS NOT NULL AND h.oldStatus <> h.newStatus\nGROUP BY c.id, c.name\nORDER BY status_changes DESC, c.id;"
+    },
+    {
+      "part": "part2",
+      "name": "status_changes_by_day",
+      "description": "Number of card status changes (and distinct cards changed) on each day.",
+      "output": "results/status_changes_by_day.csv",
+      "sql": "SELECT date(timestamp, 'unixepoch') AS day,\n       COUNT(*)                     AS status_changes,\n       COUNT(DISTINCT cardID)       AS cards_changed\nFROM card_change_history\nWHERE oldStatus IS NOT NULL AND oldStatus <> newStatus\nGROUP BY day ORDER BY day;"
+    }
+  ],
+  "key_results": {
+    "avg_daily_active_users": {
+      "before": 3.63,
+      "after": 11.79
+    },
+    "active_days": {
+      "before": 110,
+      "after": 245
+    },
+    "total_status_changes": 286,
+    "cards_with_no_status_change": 38
+  }
+}
